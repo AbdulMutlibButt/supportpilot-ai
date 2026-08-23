@@ -1,0 +1,58 @@
+# Dependencies
+/node_modules/
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# Next.js and production output
+/.next/
+/out/
+/build/
+
+# Tests and tooling
+/coverage/
+*.tsbuildinfo
+next-env.d.ts
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Environment files and secrets (the blank template is safe to commit)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
+credentials*.json
+service-account*.json
+
+# Local databases and Prisma-generated client
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+*.sqlite-journal
+/src/generated/prisma/
+
+# Hosting and local tool state
+.vercel/
+.openai/
+.claude/
+.windsurf/
+.vscode/
+.idea/
+
+# Operating system files
+.DS_Store
+Thumbs.db
+Desktop.ini

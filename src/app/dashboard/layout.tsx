@@ -1,0 +1,1 @@
+import { DashboardShell } from "@/components/dashboard-shell"; import {requireWorkspace} from "@/lib/auth"; export default async function Layout({children}:{children:React.ReactNode}){await requireWorkspace();return <DashboardShell>{children}</DashboardShell>}

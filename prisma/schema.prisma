@@ -1,0 +1,65 @@
+generator client {
+  provider = "prisma-client-js"
+}
+datasource db {
+  provider = "postgresql"
+}
+enum Role {
+  OWNER
+  AGENT
+  VIEWER
+}
+model User {
+  id String @id @default(cuid())
+  email String @unique
+  name String
+  passwordHash String
+  sessions Session[]
+  memberships Membership[]
+  invitationsSent Invitation[] @relation("Inviter")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+model Workspace {
+  id String @id @default(cuid())
+  name String
+  slug String @unique
+  memberships Membership[]
+  invitations Invitation[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+model Membership {
+  id String @id @default(cuid())
+  role Role @default(AGENT)
+  userId String
+  workspaceId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  @@unique([userId, workspaceId])
+  @@index([workspaceId])
+}
+model Invitation {
+  id String @id @default(cuid())
+  email String
+  role Role @default(AGENT)
+  tokenHash String @unique
+  expiresAt DateTime
+  acceptedAt DateTime?
+  workspaceId String
+  invitedById String
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  invitedBy User @relation("Inviter", fields: [invitedById], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  @@index([workspaceId, email])
+}
+model Session {
+  id String @id @default(cuid())
+  tokenHash String @unique
+  expiresAt DateTime
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  @@index([userId])
+}

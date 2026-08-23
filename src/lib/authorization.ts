@@ -1,0 +1,1 @@
+export type WorkspaceRole="OWNER"|"AGENT"|"VIEWER"; const rank:Record<WorkspaceRole,number>={VIEWER:1,AGENT:2,OWNER:3}; export function can(role:WorkspaceRole,required:WorkspaceRole){return rank[role]>=rank[required]} export function belongsToWorkspace(memberships:{workspaceId:string}[],workspaceId:string){return memberships.some(m=>m.workspaceId===workspaceId)}

@@ -1,65 +1,226 @@
 generator client {
   provider = "prisma-client-js"
 }
+
 datasource db {
   provider = "postgresql"
 }
+
 enum Role {
   OWNER
   AGENT
   VIEWER
 }
+
+enum ConversationStatus {
+  OPEN
+  PENDING
+  RESOLVED
+}
+
+enum ConversationPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum MessageAuthorType {
+  CUSTOMER
+  AGENT
+}
+
 model User {
-  id String @id @default(cuid())
-  email String @unique
-  name String
-  passwordHash String
-  sessions Session[]
-  memberships Membership[]
-  invitationsSent Invitation[] @relation("Inviter")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id              String          @id @default(cuid())
+  email           String          @unique
+  name            String
+  passwordHash    String
+  sessions        Session[]
+  memberships     Membership[]
+  invitationsSent Invitation[]    @relation("Inviter")
+  messages        Message[]
+  assignments     Assignment[]    @relation("AssignedAgent")
+  assignmentsMade Assignment[]    @relation("AssignedBy")
+  internalNotes   InternalNote[]
+  activityEvents  ActivityEvent[]
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
 }
+
 model Workspace {
-  id String @id @default(cuid())
-  name String
-  slug String @unique
-  memberships Membership[]
-  invitations Invitation[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id             String          @id @default(cuid())
+  name           String
+  slug           String          @unique
+  memberships    Membership[]
+  invitations    Invitation[]
+  customers      Customer[]
+  conversations  Conversation[]
+  tags           Tag[]
+  activityEvents ActivityEvent[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
 }
+
+model Customer {
+  id            String         @id @default(cuid())
+  workspaceId   String
+  name          String
+  email         String
+  company       String?
+  workspace     Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  conversations Conversation[]
+  messages      Message[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@unique([workspaceId, email])
+  @@index([workspaceId, name])
+}
+
+model Conversation {
+  id             String               @id @default(cuid())
+  workspaceId    String
+  customerId     String
+  subject        String
+  status         ConversationStatus   @default(OPEN)
+  priority       ConversationPriority @default(NORMAL)
+  lastMessageAt  DateTime             @default(now())
+  resolvedAt     DateTime?
+  workspace      Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  customer       Customer             @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  messages       Message[]
+  tags           ConversationTag[]
+  assignment     Assignment?
+  internalNotes  InternalNote[]
+  activityEvents ActivityEvent[]
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  @@index([workspaceId, status, lastMessageAt(sort: Desc)])
+  @@index([workspaceId, priority])
+  @@index([workspaceId, customerId])
+}
+
+model Message {
+  id             String            @id @default(cuid())
+  conversationId String
+  authorType     MessageAuthorType
+  body           String
+  customerId     String?
+  userId         String?
+  conversation   Conversation      @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  customer       Customer?         @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  user           User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdAt      DateTime          @default(now())
+
+  @@index([conversationId, createdAt])
+}
+
+model Tag {
+  id            String            @id @default(cuid())
+  workspaceId   String
+  name          String
+  color         String            @default("#6558f5")
+  workspace     Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  conversations ConversationTag[]
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  @@unique([workspaceId, name])
+  @@index([workspaceId])
+}
+
+model ConversationTag {
+  conversationId String
+  tagId          String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  tag            Tag          @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+
+  @@id([conversationId, tagId])
+  @@index([tagId])
+}
+
+model Assignment {
+  id             String       @id @default(cuid())
+  conversationId String       @unique
+  agentId        String
+  assignedById   String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  agent          User         @relation("AssignedAgent", fields: [agentId], references: [id], onDelete: Cascade)
+  assignedBy     User         @relation("AssignedBy", fields: [assignedById], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([agentId])
+}
+
+model InternalNote {
+  id             String       @id @default(cuid())
+  conversationId String
+  authorId       String
+  body           String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  author         User         @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([conversationId, createdAt])
+}
+
+model ActivityEvent {
+  id             String        @id @default(cuid())
+  workspaceId    String
+  conversationId String?
+  actorId        String?
+  type           String
+  description    String
+  metadata       Json?
+  workspace      Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  conversation   Conversation? @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  actor          User?         @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  createdAt      DateTime      @default(now())
+
+  @@index([workspaceId, createdAt(sort: Desc)])
+  @@index([conversationId, createdAt])
+}
+
 model Membership {
-  id String @id @default(cuid())
-  role Role @default(AGENT)
-  userId String
+  id          String    @id @default(cuid())
+  role        Role      @default(AGENT)
+  userId      String
   workspaceId String
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+
   @@unique([userId, workspaceId])
   @@index([workspaceId])
 }
+
 model Invitation {
-  id String @id @default(cuid())
-  email String
-  role Role @default(AGENT)
-  tokenHash String @unique
-  expiresAt DateTime
-  acceptedAt DateTime?
+  id          String    @id @default(cuid())
+  email       String
+  role        Role      @default(AGENT)
+  tokenHash   String    @unique
+  expiresAt   DateTime
+  acceptedAt  DateTime?
   workspaceId String
   invitedById String
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  invitedBy User @relation("Inviter", fields: [invitedById], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  invitedBy   User      @relation("Inviter", fields: [invitedById], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+
   @@index([workspaceId, email])
 }
+
 model Session {
-  id String @id @default(cuid())
-  tokenHash String @unique
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
   expiresAt DateTime
-  userId String
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
+
   @@index([userId])
 }

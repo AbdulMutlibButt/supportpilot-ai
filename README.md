@@ -12,7 +12,10 @@ SupportPilot AI is a modern customer-support workspace for growing teams. The cu
 - Workspace creation during registration
 - Owner, agent, and viewer membership roles
 - Workspace authorization helpers
-- Conversations, Knowledge Base, Analytics, Team, and Settings interfaces
+- Database-backed conversation inbox, assignments, tags, notes, and activity
+- Secure team invitations with owner, agent, and viewer roles
+- Database-backed Knowledge Base collections, documents, chunks, jobs, and activity
+- Private PDF, DOCX, TXT, and manual article processing with workspace isolation
 - Light and dark themes
 - Loading, empty, error, and not-found states
 - Local development seed accounts
@@ -27,7 +30,8 @@ SupportPilot AI is a modern customer-support workspace for growing teams. The cu
 - Prisma ORM 7 and Prisma Migrate
 - Zod validation
 - bcrypt password hashing
-- Vitest and ESLint
+- Mammoth and PDF.js document text extraction
+- Vitest, Playwright, and ESLint
 
 ## Local setup
 
@@ -81,20 +85,19 @@ The seed creates owner, agent, and viewer accounts in the Northstar Support work
 | `npm run start` | Run the compiled production application |
 | `npm run lint` | Run ESLint |
 | `npm test` | Run the automated test suite once |
+| `npm run test:e2e` | Run browser-level authentication, conversation, and Knowledge Base workflows |
 | `npm run db:dev` | Start the named local Prisma Postgres instance |
 | `npm run db:migrate` | Create and apply development migrations |
 | `npm run db:seed` | Load local development users and workspace data |
 
 ## Project status
 
-Milestones 1 and 2 are complete. The application has a production-quality interface and an initial secure data foundation. Dashboard product content is currently representative; customer-support records and workflows will become database-backed in later milestones.
+Milestones 1 through 4 are complete. The application now has database-backed authentication, workspace authorization, customer-support workflows, invitations, and a secure local Knowledge Base processing foundation. Uploaded files remain private and are not committed to Git.
 
 ## Planned features
 
-- Database-backed conversations and customer records
-- Knowledge Base article management and document uploads
-- Invitation acceptance and team administration workflows
-- AI-assisted support answers and automation
+- Object-storage provider for production uploads
+- Vector embeddings, semantic search, and AI-assisted support answers
 - Email channel integration and notifications
 - Stripe subscriptions and workspace billing
 - Expanded integration and end-to-end test coverage
@@ -102,3 +105,5 @@ Milestones 1 and 2 are complete. The application has a production-quality interf
 ## Security notes
 
 Local environment files, credentials, generated clients, build output, database files, and logs are intentionally excluded from Git. Keep production secrets in the deployment platform's secret manager and never commit them to the repository.
+
+`npm audit --omit=dev` currently reports a high-severity advisory through the development-only Prisma CLI (`@prisma/config` → `deepmerge-ts`). npm's offered remediation downgrades Prisma across a major version, so it is intentionally not applied. Reassess when Prisma publishes a compatible patched release; the affected CLI dependency is not part of the deployed application runtime.

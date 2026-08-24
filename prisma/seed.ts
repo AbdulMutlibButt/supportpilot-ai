@@ -25,5 +25,20 @@ if (await db.conversation.count({ where: { workspaceId: workspace.id } }) === 0)
     await db.activityEvent.create({ data: { workspaceId: workspace.id, conversationId: conversation.id, actorId: owner.id, type: "conversation.created", description: `Created conversation “${item.subject}”` } });
   }
 }
+const gettingStarted = await db.knowledgeCollection.upsert({
+  where: { workspaceId_name: { workspaceId: workspace.id, name: "Getting started" } },
+  update: {},
+  create: { workspaceId: workspace.id, name: "Getting started", description: "Core product and support guidance" },
+});
+if (await db.knowledgeDocument.count({ where: { workspaceId: workspace.id } }) === 0) {
+  const document = await db.knowledgeDocument.create({
+    data: {
+      workspaceId: workspace.id, creatorId: owner.id, collectionId: gettingStarted.id,
+      title: "Welcome to Northstar Support", description: "A sample manual knowledge article.", sourceType: "ARTICLE", status: "READY",
+      chunks: { create: { position: 0, section: "Article", content: "Northstar Support helps teams resolve customer questions consistently. Add trusted product guidance here for agents and viewers." } },
+    },
+  });
+  await db.documentActivity.create({ data: { workspaceId: workspace.id, documentId: document.id, actorId: owner.id, type: "article.created", description: "Created sample knowledge article" } });
+}
 await db.$disconnect();
-console.log("Seeded SupportPilot members, customers, tags, and conversations.");
+console.log("Seeded SupportPilot members, conversations, and knowledge content.");

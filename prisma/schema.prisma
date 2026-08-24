@@ -30,35 +30,55 @@ enum MessageAuthorType {
   AGENT
 }
 
+enum KnowledgeSourceType {
+  PDF
+  DOCX
+  TXT
+  ARTICLE
+}
+
+enum ProcessingStatus {
+  PENDING
+  PROCESSING
+  READY
+  FAILED
+}
+
 model User {
-  id              String          @id @default(cuid())
-  email           String          @unique
-  name            String
-  passwordHash    String
-  sessions        Session[]
-  memberships     Membership[]
-  invitationsSent Invitation[]    @relation("Inviter")
-  messages        Message[]
-  assignments     Assignment[]    @relation("AssignedAgent")
-  assignmentsMade Assignment[]    @relation("AssignedBy")
-  internalNotes   InternalNote[]
-  activityEvents  ActivityEvent[]
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+  id                  String              @id @default(cuid())
+  email               String              @unique
+  name                String
+  passwordHash        String
+  sessions            Session[]
+  memberships         Membership[]
+  invitationsSent     Invitation[]        @relation("Inviter")
+  messages            Message[]
+  assignments         Assignment[]        @relation("AssignedAgent")
+  assignmentsMade     Assignment[]        @relation("AssignedBy")
+  internalNotes       InternalNote[]
+  activityEvents      ActivityEvent[]
+  knowledgeDocuments  KnowledgeDocument[] @relation("KnowledgeCreator")
+  knowledgeActivities DocumentActivity[]
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
 }
 
 model Workspace {
-  id             String          @id @default(cuid())
-  name           String
-  slug           String          @unique
-  memberships    Membership[]
-  invitations    Invitation[]
-  customers      Customer[]
-  conversations  Conversation[]
-  tags           Tag[]
-  activityEvents ActivityEvent[]
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
+  id                   String                @id @default(cuid())
+  name                 String
+  slug                 String                @unique
+  memberships          Membership[]
+  invitations          Invitation[]
+  customers            Customer[]
+  conversations        Conversation[]
+  tags                 Tag[]
+  activityEvents       ActivityEvent[]
+  knowledgeCollections KnowledgeCollection[]
+  knowledgeDocuments   KnowledgeDocument[]
+  processingJobs       ProcessingJob[]
+  documentActivities   DocumentActivity[]
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
 }
 
 model Customer {
@@ -223,4 +243,96 @@ model Session {
   createdAt DateTime @default(now())
 
   @@index([userId])
+}
+
+model KnowledgeCollection {
+  id          String              @id @default(cuid())
+  workspaceId String
+  name        String
+  description String?
+  workspace   Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  documents   KnowledgeDocument[]
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  @@unique([workspaceId, name])
+  @@index([workspaceId, createdAt])
+}
+
+model KnowledgeDocument {
+  id               String               @id @default(cuid())
+  workspaceId      String
+  collectionId     String?
+  creatorId        String
+  title            String
+  description      String?
+  sourceType       KnowledgeSourceType
+  originalFilename String?
+  mimeType         String?
+  fileSize         Int?
+  storageKey       String?              @unique
+  status           ProcessingStatus     @default(PENDING)
+  failureReason    String?
+  workspace        Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  collection       KnowledgeCollection? @relation(fields: [collectionId], references: [id], onDelete: SetNull)
+  creator          User                 @relation("KnowledgeCreator", fields: [creatorId], references: [id], onDelete: Restrict)
+  chunks           DocumentChunk[]
+  jobs             ProcessingJob[]
+  activities       DocumentActivity[]
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  @@index([workspaceId, status, updatedAt(sort: Desc)])
+  @@index([workspaceId, collectionId])
+  @@index([creatorId])
+}
+
+model DocumentChunk {
+  id         String            @id @default(cuid())
+  documentId String
+  position   Int
+  content    String
+  pageNumber Int?
+  section    String?
+  metadata   Json?
+  document   KnowledgeDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  createdAt  DateTime          @default(now())
+
+  @@unique([documentId, position])
+  @@index([documentId, pageNumber])
+}
+
+model ProcessingJob {
+  id            String            @id @default(cuid())
+  workspaceId   String
+  documentId    String
+  status        ProcessingStatus  @default(PENDING)
+  attempts      Int               @default(0)
+  startedAt     DateTime?
+  completedAt   DateTime?
+  failureReason String?
+  workspace     Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  document      KnowledgeDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  @@index([workspaceId, status, createdAt])
+  @@index([documentId, createdAt])
+}
+
+model DocumentActivity {
+  id          String            @id @default(cuid())
+  workspaceId String
+  documentId  String
+  actorId     String?
+  type        String
+  description String
+  metadata    Json?
+  workspace   Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  document    KnowledgeDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  actor       User?             @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  createdAt   DateTime          @default(now())
+
+  @@index([workspaceId, createdAt(sort: Desc)])
+  @@index([documentId, createdAt])
 }

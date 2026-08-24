@@ -1,6 +1,41 @@
-import "server-only"; import {cookies} from "next/headers"; import {redirect} from "next/navigation"; import {createHash,randomBytes} from "crypto"; import {db} from "./db";
-const COOKIE=process.env.SESSION_COOKIE_NAME??"supportpilot_session"; const hash=(v:string)=>createHash("sha256").update(v).digest("hex");
-export async function createSession(userId:string){const raw=randomBytes(32).toString("base64url"),expiresAt=new Date(Date.now()+1000*60*60*24*14);await db.session.create({data:{userId,tokenHash:hash(raw),expiresAt}});(await cookies()).set(COOKIE,raw,{httpOnly:true,sameSite:"lax",secure:process.env.NODE_ENV==="production",path:"/",expires:expiresAt})}
-export async function getSession(){const raw=(await cookies()).get(COOKIE)?.value;if(!raw)return null;return db.session.findFirst({where:{tokenHash:hash(raw),expiresAt:{gt:new Date()}},include:{user:{include:{memberships:{include:{workspace:true}}}}}})}
-export async function requireUser(){const s=await getSession();if(!s)redirect("/login");return s.user} export async function requireWorkspace(role?:"OWNER"|"AGENT"|"VIEWER"){const u=await requireUser(),m=u.memberships[0];if(!m)redirect("/login");if(role&&m.role!==role)throw new Error("Forbidden");return {user:u,membership:m,workspace:m.workspace}}
-export async function destroySession(){const store=await cookies(),raw=store.get(COOKIE)?.value;if(raw)await db.session.deleteMany({where:{tokenHash:hash(raw)}});store.delete(COOKIE)}
+import "server-only";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { db } from "./db";
+import { authorizeWorkspace, type WorkspaceRole } from "./authorization";
+import { findSession, persistSession, revokeSession } from "./session-store";
+
+const COOKIE = process.env.SESSION_COOKIE_NAME ?? "supportpilot_session";
+
+export async function createSession(userId: string) {
+  const { token, expiresAt } = await persistSession(db, userId);
+  (await cookies()).set(COOKIE, token, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", expires: expiresAt });
+}
+
+export async function getSession() {
+  const token = (await cookies()).get(COOKIE)?.value;
+  if (!token) return null;
+  return findSession(db, token);
+}
+
+export async function requireUser() {
+  const session = await getSession();
+  if (!session) redirect("/login");
+  return session.user;
+}
+
+export async function requireWorkspace(workspaceId?: string, requiredRole: WorkspaceRole = "VIEWER") {
+  const user = await requireUser();
+  const selectedId = workspaceId ?? (await db.membership.findFirst({ where: { userId: user.id }, select: { workspaceId: true } }))?.workspaceId;
+  if (!selectedId) redirect("/login");
+  const membership = await authorizeWorkspace(db, user.id, selectedId, requiredRole);
+  if (!membership) throw new Error("Forbidden");
+  return { user, membership, workspace: membership.workspace };
+}
+
+export async function destroySession() {
+  const store = await cookies();
+  const token = store.get(COOKIE)?.value;
+  if (token) await revokeSession(db, token);
+  store.delete(COOKIE);
+}

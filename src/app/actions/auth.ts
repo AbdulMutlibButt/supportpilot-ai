@@ -1,5 +1,28 @@
-"use server"; import {db} from "@/lib/db"; import {createSession,destroySession} from "@/lib/auth"; import {loginSchema,registerSchema} from "@/lib/validation"; import {hash,compare} from "bcryptjs"; import {redirect} from "next/navigation";
-export type AuthState={message?:string;errors?:Record<string,string[]>}; const slug=(s:string)=>s.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")+"-"+Math.random().toString(36).slice(2,7);
-export async function register(_:AuthState,form:FormData):Promise<AuthState>{const v=registerSchema.safeParse(Object.fromEntries(form));if(!v.success)return{errors:v.error.flatten().fieldErrors};const exists=await db.user.findUnique({where:{email:v.data.email}});if(exists)return{message:"An account with this email already exists."};const passwordHash=await hash(v.data.password,12);const user=await db.$transaction(async tx=>{const u=await tx.user.create({data:{name:v.data.name,email:v.data.email,passwordHash}});const w=await tx.workspace.create({data:{name:v.data.workspace,slug:slug(v.data.workspace)}});await tx.membership.create({data:{userId:u.id,workspaceId:w.id,role:"OWNER"}});return u});await createSession(user.id);redirect("/dashboard")}
-export async function login(_:AuthState,form:FormData):Promise<AuthState>{const v=loginSchema.safeParse(Object.fromEntries(form));if(!v.success)return{errors:v.error.flatten().fieldErrors};const user=await db.user.findUnique({where:{email:v.data.email}});if(!user||!await compare(v.data.password,user.passwordHash))return{message:"Email or password is incorrect."};await createSession(user.id);redirect("/dashboard")}
-export async function logout(){await destroySession();redirect("/login")}
+"use server";
+import { db } from "@/lib/db";
+import { createSession, destroySession } from "@/lib/auth";
+import { authenticate, createAccount } from "@/lib/auth-service";
+import { loginSchema, registerSchema } from "@/lib/validation";
+import { redirect } from "next/navigation";
+
+export type AuthState = { message?: string; errors?: Record<string, string[]> };
+
+export async function register(_: AuthState, form: FormData): Promise<AuthState> {
+  const validated = registerSchema.safeParse(Object.fromEntries(form));
+  if (!validated.success) return { errors: validated.error.flatten().fieldErrors };
+  const result = await createAccount(db, validated.data);
+  if (!result.ok) return { message: "An account with this email already exists." };
+  await createSession(result.user.id);
+  redirect("/dashboard");
+}
+
+export async function login(_: AuthState, form: FormData): Promise<AuthState> {
+  const validated = loginSchema.safeParse(Object.fromEntries(form));
+  if (!validated.success) return { errors: validated.error.flatten().fieldErrors };
+  const user = await authenticate(db, validated.data.email, validated.data.password);
+  if (!user) return { message: "Email or password is incorrect." };
+  await createSession(user.id);
+  redirect("/dashboard");
+}
+
+export async function logout() { await destroySession(); redirect("/login"); }

@@ -9,6 +9,7 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:e2e": "playwright test",
+    "ai:smoke": "tsx scripts/ai-smoke.ts",
     "db:dev": "prisma dev --name supportpilot --detach",
     "db:migrate": "prisma migrate dev",
     "db:seed": "prisma db seed"

@@ -28,6 +28,19 @@ enum ConversationPriority {
 enum MessageAuthorType {
   CUSTOMER
   AGENT
+  AI
+}
+
+enum EmbeddingStatus {
+  PENDING
+  PROCESSING
+  READY
+  FAILED
+}
+
+enum AIFeedbackValue {
+  HELPFUL
+  NOT_HELPFUL
 }
 
 enum KnowledgeSourceType {
@@ -59,6 +72,7 @@ model User {
   activityEvents      ActivityEvent[]
   knowledgeDocuments  KnowledgeDocument[] @relation("KnowledgeCreator")
   knowledgeActivities DocumentActivity[]
+  aiFeedback          AIFeedback[]
   createdAt           DateTime            @default(now())
   updatedAt           DateTime            @updatedAt
 }
@@ -77,6 +91,10 @@ model Workspace {
   knowledgeDocuments   KnowledgeDocument[]
   processingJobs       ProcessingJob[]
   documentActivities   DocumentActivity[]
+  chatbotConfig        ChatbotConfig?
+  chatSessions         CustomerChatSession[]
+  aiResponses          AIResponse[]
+  aiUsage              AIUsageEvent[]
   createdAt            DateTime              @default(now())
   updatedAt            DateTime              @updatedAt
 }
@@ -98,23 +116,27 @@ model Customer {
 }
 
 model Conversation {
-  id             String               @id @default(cuid())
-  workspaceId    String
-  customerId     String
-  subject        String
-  status         ConversationStatus   @default(OPEN)
-  priority       ConversationPriority @default(NORMAL)
-  lastMessageAt  DateTime             @default(now())
-  resolvedAt     DateTime?
-  workspace      Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  customer       Customer             @relation(fields: [customerId], references: [id], onDelete: Restrict)
-  messages       Message[]
-  tags           ConversationTag[]
-  assignment     Assignment?
-  internalNotes  InternalNote[]
-  activityEvents ActivityEvent[]
-  createdAt      DateTime             @default(now())
-  updatedAt      DateTime             @updatedAt
+  id              String               @id @default(cuid())
+  workspaceId     String
+  customerId      String
+  subject         String
+  status          ConversationStatus   @default(OPEN)
+  priority        ConversationPriority @default(NORMAL)
+  lastMessageAt   DateTime             @default(now())
+  resolvedAt      DateTime?
+  workspace       Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  customer        Customer             @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  messages        Message[]
+  tags            ConversationTag[]
+  assignment      Assignment?
+  internalNotes   InternalNote[]
+  activityEvents  ActivityEvent[]
+  aiSuspended     Boolean              @default(false)
+  humanTakeoverAt DateTime?
+  chatSession     CustomerChatSession?
+  aiResponses     AIResponse[]
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
 
   @@index([workspaceId, status, lastMessageAt(sort: Desc)])
   @@index([workspaceId, priority])
@@ -132,6 +154,8 @@ model Message {
   customer       Customer?         @relation(fields: [customerId], references: [id], onDelete: SetNull)
   user           User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
   createdAt      DateTime          @default(now())
+  aiGenerated    Boolean           @default(false)
+  aiResponse     AIResponse?
 
   @@index([conversationId, createdAt])
 }
@@ -297,6 +321,8 @@ model DocumentChunk {
   metadata   Json?
   document   KnowledgeDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
   createdAt  DateTime          @default(now())
+  embedding  ChunkEmbedding?
+  citations  AICitation[]
 
   @@unique([documentId, position])
   @@index([documentId, pageNumber])
@@ -335,4 +361,112 @@ model DocumentActivity {
 
   @@index([workspaceId, createdAt(sort: Desc)])
   @@index([documentId, createdAt])
+}
+
+model ChunkEmbedding {
+  id          String          @id @default(cuid())
+  chunkId     String          @unique
+  vector      Json?
+  model       String
+  dimensions  Int
+  contentHash String
+  status      EmbeddingStatus @default(PENDING)
+  attempts    Int             @default(0)
+  error       String?
+  indexedAt   DateTime?
+  chunk       DocumentChunk   @relation(fields: [chunkId], references: [id], onDelete: Cascade)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([status, updatedAt])
+  @@index([model, dimensions])
+}
+
+model ChatbotConfig {
+  id             String                @id @default(cuid())
+  workspaceId    String                @unique
+  publicId       String                @unique @default(uuid())
+  name           String                @default("Support assistant")
+  welcomeMessage String                @default("Hi! How can we help?")
+  color          String                @default("#6558f5")
+  enabled        Boolean               @default(true)
+  workspace      Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  sessions       CustomerChatSession[]
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+}
+
+model CustomerChatSession {
+  id             String        @id @default(uuid())
+  workspaceId    String
+  chatbotId      String
+  conversationId String        @unique
+  tokenHash      String        @unique
+  escalatedAt    DateTime?
+  lastSeenAt     DateTime      @default(now())
+  workspace      Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  chatbot        ChatbotConfig @relation(fields: [chatbotId], references: [id], onDelete: Cascade)
+  conversation   Conversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime      @default(now())
+
+  @@index([workspaceId, lastSeenAt])
+  @@index([chatbotId, createdAt])
+}
+
+model AIResponse {
+  id             String        @id @default(cuid())
+  workspaceId    String
+  conversationId String?
+  messageId      String?       @unique
+  questionHash   String
+  answer         String
+  refused        Boolean       @default(false)
+  model          String
+  latencyMs      Int?
+  workspace      Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  conversation   Conversation? @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  message        Message?      @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  citations      AICitation[]
+  feedback       AIFeedback[]
+  createdAt      DateTime      @default(now())
+
+  @@index([workspaceId, createdAt(sort: Desc)])
+  @@index([conversationId, createdAt])
+}
+
+model AICitation {
+  id         String        @id @default(cuid())
+  responseId String
+  chunkId    String
+  rank       Int
+  excerpt    String
+  response   AIResponse    @relation(fields: [responseId], references: [id], onDelete: Cascade)
+  chunk      DocumentChunk @relation(fields: [chunkId], references: [id], onDelete: Restrict)
+  createdAt  DateTime      @default(now())
+
+  @@unique([responseId, chunkId])
+  @@index([chunkId])
+}
+
+model AIFeedback {
+  id         String          @id @default(cuid())
+  responseId String
+  userId     String
+  value      AIFeedbackValue
+  response   AIResponse      @relation(fields: [responseId], references: [id], onDelete: Cascade)
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime        @default(now())
+
+  @@unique([responseId, userId])
+}
+
+model AIUsageEvent {
+  id          String    @id @default(cuid())
+  workspaceId String
+  kind        String
+  units       Int       @default(1)
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+
+  @@index([workspaceId, createdAt])
 }

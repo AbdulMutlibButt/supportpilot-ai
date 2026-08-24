@@ -45,7 +45,9 @@ service-account*.json
 *.sqlite3
 *.sqlite-journal
 /src/generated/prisma/
+/generated/
 /.data/
+/uploads/
 /private-uploads/
 
 # Hosting and local tool state

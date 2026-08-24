@@ -31,6 +31,7 @@ SupportPilot AI is a modern customer-support workspace for growing teams. The cu
 - Zod validation
 - bcrypt password hashing
 - Mammoth and PDF.js document text extraction
+- Local Ollama chat and `nomic-embed-text` embeddings (no cloud AI key required)
 - Vitest, Playwright, and ESLint
 
 ## Local setup
@@ -55,7 +56,7 @@ Requirements: Node.js 20 or newer and npm. This project uses Prisma's project-lo
    npm run db:dev
    ```
 
-4. Copy the TCP PostgreSQL URL reported by Prisma into `DATABASE_URL` in `.env`. Set `SESSION_COOKIE_NAME` to a local cookie name, and set `SEED_PASSWORD` to a development-only password of at least eight characters.
+4. Copy the TCP PostgreSQL URL reported by Prisma into `DATABASE_URL` in `.env`. Set `SESSION_COOKIE_NAME` and a development-only `SEED_PASSWORD`. For local AI, set `AI_PROVIDER=ollama`, `OLLAMA_BASE_URL=http://127.0.0.1:11434`, the two installed model names, and embedding dimensions `768`. Ollama must remain loopback-only.
 
 5. Apply migrations and load development data:
 
@@ -74,7 +75,7 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ### Seed accounts
 
-The seed creates owner, agent, and viewer accounts in the Northstar Support workspace. Their development-only credentials are printed by the seed command. Never reuse seed credentials outside local development.
+The seed creates owner, agent, and viewer accounts in the Northstar Support workspace. They use the local `SEED_PASSWORD`; the seed never prints it. Never reuse seed credentials outside local development.
 
 ## Available scripts
 
@@ -86,18 +87,19 @@ The seed creates owner, agent, and viewer accounts in the Northstar Support work
 | `npm run lint` | Run ESLint |
 | `npm test` | Run the automated test suite once |
 | `npm run test:e2e` | Run browser-level authentication, conversation, and Knowledge Base workflows |
+| `npm run ai:smoke` | Run a privacy-preserving seeded smoke test against local Ollama |
 | `npm run db:dev` | Start the named local Prisma Postgres instance |
 | `npm run db:migrate` | Create and apply development migrations |
 | `npm run db:seed` | Load local development users and workspace data |
 
 ## Project status
 
-Milestones 1 through 4 are complete. The application now has database-backed authentication, workspace authorization, customer-support workflows, invitations, and a secure local Knowledge Base processing foundation. Uploaded files remain private and are not committed to Git.
+Milestones 1 through 5 are implemented. SupportPilot now includes local Ollama-backed indexing, workspace-isolated retrieval, validated grounded citations, a persistent public chatbot, human takeover, and agent reply assistance in addition to the existing authentication, support workflow, invitations, and private Knowledge Base. Uploaded files remain private and are not committed to Git.
 
 ## Planned features
 
 - Object-storage provider for production uploads
-- Vector embeddings, semantic search, and AI-assisted support answers
+- Optional production AI-provider and vector-index adapters
 - Email channel integration and notifications
 - Stripe subscriptions and workspace billing
 - Expanded integration and end-to-end test coverage

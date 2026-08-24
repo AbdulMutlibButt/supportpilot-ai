@@ -40,5 +40,13 @@ if (await db.knowledgeDocument.count({ where: { workspaceId: workspace.id } }) =
   });
   await db.documentActivity.create({ data: { workspaceId: workspace.id, documentId: document.id, actorId: owner.id, type: "article.created", description: "Created sample knowledge article" } });
 }
+if (!await db.knowledgeDocument.findFirst({ where: { workspaceId: workspace.id, title: "Returns and account access" } })) {
+  const document = await db.knowledgeDocument.create({ data: { workspaceId: workspace.id, creatorId: owner.id, collectionId: gettingStarted.id, title: "Returns and account access", description: "Seed content for grounded-answer evaluation.", sourceType: "ARTICLE", status: "READY", chunks: { create: [
+    { position: 0, section: "Returns", content: "Customers may return unused products within 30 days of delivery. Products must be in their original packaging and include proof of purchase." },
+    { position: 1, section: "Account access", content: "Customers who lose access after changing phones should contact support for identity verification and an account recovery link." },
+  ] } } });
+  await db.documentActivity.create({ data: { workspaceId: workspace.id, documentId: document.id, actorId: owner.id, type: "article.created", description: "Created evaluation knowledge article" } });
+}
+await db.chatbotConfig.upsert({ where: { workspaceId: workspace.id }, update: {}, create: { workspaceId: workspace.id, name: "Northstar Assistant", welcomeMessage: "Hi! Ask a question about Northstar support.", color: "#6558f5" } });
 await db.$disconnect();
-console.log("Seeded SupportPilot members, conversations, and knowledge content.");
+console.log("Seeded SupportPilot members, conversations, knowledge content, and chatbot configuration.");

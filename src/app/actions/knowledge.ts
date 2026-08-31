@@ -8,6 +8,8 @@ import { db } from "@/lib/db";
 import { validateUpload } from "@/lib/document-processing";
 import * as knowledge from "@/lib/knowledge-service";
 import { privateStorage } from "@/lib/storage";
+import { enforcePlanLimit } from "@/lib/plan-service";
+import { validateRuntimeConfig } from "@/lib/runtime-config";
 
 const shortText = z.string().trim().min(1).max(200);
 const optionalText = z.string().trim().max(2_000).optional();
@@ -15,6 +17,8 @@ const id = z.string().trim().min(1);
 
 export async function uploadDocumentAction(form: FormData) {
   const { user, workspace } = await requireWorkspace(undefined, "AGENT");
+  if (validateRuntimeConfig().publicDemo) throw new Error("Private uploads are disabled in public portfolio mode");
+  await enforcePlanLimit(db,workspace.id,"documents");
   const file = form.get("file");
   if (!(file instanceof File)) throw new Error("Choose a PDF, DOCX, or TXT file");
   const data = Buffer.from(await file.arrayBuffer());
@@ -29,6 +33,7 @@ export async function uploadDocumentAction(form: FormData) {
 
 export async function createArticleAction(form: FormData) {
   const { user, workspace } = await requireWorkspace(undefined, "AGENT");
+  await enforcePlanLimit(db,workspace.id,"documents");
   const fields = z.object({ title: shortText, description: optionalText, content: z.string().trim().min(1).max(250_000), collectionId: z.string().optional() }).parse(Object.fromEntries(form));
   const document = await knowledge.createArticle(db, user.id, workspace.id, { ...fields, collectionId: fields.collectionId || undefined });
   redirect(`/dashboard/knowledge/${document.id}?created=1`);

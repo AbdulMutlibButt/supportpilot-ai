@@ -1,0 +1,5 @@
+"use client";
+import {useRef} from "react";
+import type {Plan} from "@prisma/client";
+import {changePlanAction} from "@/app/actions/product";
+export function PlanDialog({plan,label,current}:{plan:Plan;label:string;current:boolean}){const ref=useRef<HTMLDialogElement>(null);return <><button disabled={current} className={current?"btn-secondary opacity-60":"btn-primary"} onClick={()=>ref.current?.showModal()}>{current?"Current plan":`Choose ${label}`}</button><dialog ref={ref} className="demo-dialog" aria-labelledby={`plan-${plan}`}><form action={changePlanAction}><h2 id={`plan-${plan}`} className="text-lg font-semibold">Change to {label}?</h2><p className="mt-3 text-sm text-[var(--muted)]">This is demonstration billing. No payment details are collected and no real charge will occur.</p><input type="hidden" name="plan" value={plan}/><input type="hidden" name="confirmation" value="DEMO_ONLY"/><div className="mt-6 flex justify-end gap-3"><button type="button" className="btn-secondary" onClick={()=>ref.current?.close()}>Cancel</button><button className="btn-primary">Confirm demo plan</button></div></form></dialog></>}

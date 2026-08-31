@@ -1,111 +1,166 @@
 # SupportPilot AI
 
-SupportPilot AI is a modern customer-support workspace for growing teams. The current application combines a polished responsive interface with a real PostgreSQL-backed account, workspace, session, and role foundation.
+SupportPilot AI is a portfolio-ready, local-first customer-support workspace built with Next.js. It combines database-backed authentication, tenant-isolated conversations, a private Knowledge Base, local Ollama retrieval-augmented generation, validated citations, real workspace analytics, and clearly labeled no-charge billing and email demonstrations.
 
 ## Current features
 
-- Responsive product landing page
-- Registration and login with server-side validation
-- Password hashing with bcrypt
-- Database-backed, HTTP-only sessions and logout
-- Protected dashboard routes
-- Workspace creation during registration
-- Owner, agent, and viewer membership roles
-- Workspace authorization helpers
-- Database-backed conversation inbox, assignments, tags, notes, and activity
-- Secure team invitations with owner, agent, and viewer roles
-- Database-backed Knowledge Base collections, documents, chunks, jobs, and activity
-- Private PDF, DOCX, TXT, and manual article processing with workspace isolation
-- Light and dark themes
-- Loading, empty, error, and not-found states
-- Local development seed accounts
-- Automated authentication and authorization tests
+- Secure registration, login, logout, password reset, hashed sessions, and session revocation
+- Owner, agent, and viewer roles enforced in server-side data-access functions
+- Workspace-isolated conversations, customers, messages, assignment, tags, notes, and activity
+- Secure PDF, DOCX, TXT, and manual-article processing with private local storage
+- Local Ollama embeddings and grounded answers with server-validated citations
+- Public workspace chatbot, anonymous sessions, escalation, and human takeover
+- Demonstration Free, Pro, and Business plans with server-side usage limits
+- Database development-email outbox for invitations, resets, assignments, and escalations
+- Real workspace analytics, health endpoint, request correlation IDs, and owner system status
+- Responsive light/dark UI, loading/error/empty states, keyboard focus, and reduced-motion support
+
+## Architecture
+
+```text
+Browser
+  → Next.js App Router / Server Actions / Route Handlers
+  → authentication + workspace authorization data-access layer
+  → Prisma ORM
+  → PostgreSQL
+
+Knowledge source → private storage → extraction → deterministic chunks
+  → nomic-embed-text → workspace-filtered retrieval
+  → llama3.2:3b → structured answer → server citation validation
+```
+
+Provider calls, environment configuration, database access, private storage paths, prompts, and full source documents stay server-side. Retrieval filters by workspace in database queries before generation; prompts are not the tenant boundary.
 
 ## Technology stack
 
-- Next.js 16 with the App Router
-- React 19 and TypeScript
-- Tailwind CSS 4
-- PostgreSQL through local Prisma Postgres
-- Prisma ORM 7 and Prisma Migrate
-- Zod validation
-- bcrypt password hashing
-- Mammoth and PDF.js document text extraction
-- Local Ollama chat and `nomic-embed-text` embeddings (no cloud AI key required)
-- Vitest, Playwright, and ESLint
+- Next.js 16 App Router, React 19, TypeScript, Tailwind CSS 4
+- PostgreSQL, Prisma ORM and Prisma Migrate
+- Ollama with `llama3.2:3b` and `nomic-embed-text`
+- Zod, bcrypt, Jose, Mammoth, PDF.js
+- Vitest, Playwright, ESLint
 
-## Local setup
+## Local full-mode setup
 
-Requirements: Node.js 20 or newer and npm. This project uses Prisma's project-local PostgreSQL development server, so Docker and a system-wide PostgreSQL installation are not required.
+Requirements: Node.js 20+, npm, Ollama, and the two local models. Prisma's named development PostgreSQL server avoids requiring Docker or a system-wide PostgreSQL installation.
 
-1. Install dependencies:
+```powershell
+npm install
+Copy-Item .env.example .env
+npm run db:dev
+```
 
-   ```bash
-   npm install
-   ```
+Copy the reported TCP PostgreSQL URL into `DATABASE_URL`. Configure `.env` locally:
 
-2. Create your local environment file:
+```dotenv
+APP_MODE=local-full
+AI_PROVIDER=ollama
+OLLAMA_BASE_URL=http://127.0.0.1:11434
+OLLAMA_CHAT_MODEL=llama3.2:3b
+OLLAMA_EMBEDDING_MODEL=nomic-embed-text
+OLLAMA_EMBEDDING_DIMENSIONS=768
+```
 
-   ```powershell
-   Copy-Item .env.example .env
-   ```
+Install the models without exposing Ollama beyond localhost:
 
-3. Start the named local database:
+```powershell
+ollama pull llama3.2:3b
+ollama pull nomic-embed-text
+```
 
-   ```bash
-   npm run db:dev
-   ```
+Then apply migrations, seed local data, and start the app:
 
-4. Copy the TCP PostgreSQL URL reported by Prisma into `DATABASE_URL` in `.env`. Set `SESSION_COOKIE_NAME` and a development-only `SEED_PASSWORD`. For local AI, set `AI_PROVIDER=ollama`, `OLLAMA_BASE_URL=http://127.0.0.1:11434`, the two installed model names, and embedding dimensions `768`. Ollama must remain loopback-only.
+```powershell
+$env:SEED_PASSWORD="choose-a-local-password"
+npm run db:migrate
+npm run db:seed
+npm run dev
+```
 
-5. Apply migrations and load development data:
+Open [http://localhost:3000](http://localhost:3000). Seed users are `owner@supportpilot.local`, `agent@supportpilot.local`, and `viewer@supportpilot.local`, using the local `SEED_PASSWORD`.
 
-   ```bash
-   npm run db:migrate
-   npm run db:seed
-   ```
+## Environment variables
 
-6. Start the application:
-
-   ```bash
-   npm run dev
-   ```
-
-Open [http://localhost:3000](http://localhost:3000).
-
-### Seed accounts
-
-The seed creates owner, agent, and viewer accounts in the Northstar Support workspace. They use the local `SEED_PASSWORD`; the seed never prints it. Never reuse seed credentials outside local development.
-
-## Available scripts
-
-| Script | Purpose |
+| Variable | Purpose |
 | --- | --- |
-| `npm run dev` | Start the Next.js development server |
-| `npm run build` | Create and type-check a production build |
-| `npm run start` | Run the compiled production application |
-| `npm run lint` | Run ESLint |
-| `npm test` | Run the automated test suite once |
-| `npm run test:e2e` | Run browser-level authentication, conversation, and Knowledge Base workflows |
-| `npm run ai:smoke` | Run a privacy-preserving seeded smoke test against local Ollama |
-| `npm run db:dev` | Start the named local Prisma Postgres instance |
-| `npm run db:migrate` | Create and apply development migrations |
-| `npm run db:seed` | Load local development users and workspace data |
+| `DATABASE_URL` | Server-only PostgreSQL connection |
+| `SESSION_COOKIE_NAME` | Optional local session-cookie name |
+| `SEED_PASSWORD` | Development seed password; never printed |
+| `APP_MODE` | `local-full` or `public-demo` |
+| `AI_PROVIDER` | `ollama` locally or `mock` for public demo |
+| `ALLOW_MOCK_AI` | Must be `true` to enable deterministic mock AI |
+| `OLLAMA_BASE_URL` | Loopback URL only; rejected in public mode |
+| `OLLAMA_CHAT_MODEL` | Local chat model |
+| `OLLAMA_EMBEDDING_MODEL` | Local embedding model |
+| `OLLAMA_EMBEDDING_DIMENSIONS` | Expected embedding vector size |
+| `LOCAL_STORAGE_ROOT` | Optional server-only local storage root; forbidden in public mode |
 
-## Project status
+No environment variable is prefixed with `NEXT_PUBLIC_`; AI and storage configuration must not enter browser bundles.
 
-Milestones 1 through 5 are implemented. SupportPilot now includes local Ollama-backed indexing, workspace-isolated retrieval, validated grounded citations, a persistent public chatbot, human takeover, and agent reply assistance in addition to the existing authentication, support workflow, invitations, and private Knowledge Base. Uploaded files remain private and are not committed to Git.
+## Scripts
 
-## Planned features
+| Command | Purpose |
+| --- | --- |
+| `npm run dev` | Start development server |
+| `npm run build` | Production build and framework type check |
+| `npm run lint` | ESLint |
+| `npm test` | Unit and integration tests |
+| `npm run test:e2e` | Browser and accessibility-critical workflows |
+| `npm run db:dev` | Start local Prisma PostgreSQL |
+| `npm run db:migrate` | Apply development migrations |
+| `npm run db:seed` | Seed demonstration data |
+| `npm run ai:smoke` | Privacy-preserving real-Ollama smoke test |
 
-- Object-storage provider for production uploads
-- Optional production AI-provider and vector-index adapters
-- Email channel integration and notifications
-- Stripe subscriptions and workspace billing
-- Expanded integration and end-to-end test coverage
+## Security design
 
-## Security notes
+- Passwords use bcrypt; session, invitation, anonymous-chat, and reset tokens are random and stored hashed where used for authentication.
+- Password-reset responses are generic, tokens expire after 30 minutes and are single-use, and successful resets revoke every session.
+- Every protected mutation rechecks authentication, role, workspace membership, and resource scope server-side.
+- Uploads validate extension, MIME signature, size, safe storage keys, and extraction results; files live outside public directories.
+- Public chat applies rate and usage limits, input/output limits, cancellation and timeouts.
+- Retrieved documents are treated as untrusted; structured citations are accepted only for chunks retrieved in the same workspace.
+- Logs and health responses exclude prompts, generated answers, document content, tokens, credentials, and machine paths.
+- Security headers and correlation IDs are added by the Next.js proxy.
 
-Local environment files, credentials, generated clients, build output, database files, and logs are intentionally excluded from Git. Keep production secrets in the deployment platform's secret manager and never commit them to the repository.
+See [SECURITY.md](SECURITY.md) for reporting and review scope.
 
-`npm audit --omit=dev` currently reports a high-severity advisory through the development-only Prisma CLI (`@prisma/config` → `deepmerge-ts`). npm's offered remediation downgrades Prisma across a major version, so it is intentionally not applied. Reassess when Prisma publishes a compatible patched release; the affected CLI dependency is not part of the deployed application runtime.
+## Demonstration and deployment modes
+
+### Local full mode
+
+Uses PostgreSQL, private local file storage, loopback-only Ollama, real local embeddings, and the real RAG chatbot.
+
+### Public portfolio mode
+
+Uses `APP_MODE=public-demo`, deterministic mock AI, seeded non-private content, demonstration billing, and database email previews. Private uploads and Ollama configuration are rejected. No real payment or email provider is connected.
+
+See [DEPLOYMENT.md](DEPLOYMENT.md). Deployment is intentionally not performed by this milestone.
+
+## Known audit warning
+
+`npm audit --omit=dev` reports a high-severity `deepmerge-ts` advisory through the development-only Prisma CLI (`prisma` → `@prisma/config`). npm's proposed automatic repair force-downgrades Prisma to 6.12, a breaking change, so it is intentionally not applied. Reassess when Prisma publishes a compatible update. This CLI chain is not shipped in the production runtime.
+
+## Portfolio screenshots
+
+- Landing page — screenshot placeholder
+- Conversation workspace and AI assistance — screenshot placeholder
+- Knowledge Base indexing and citations — screenshot placeholder
+- Public chatbot — screenshot placeholder
+- Analytics, billing demonstration, and system status — screenshot placeholder
+
+## Project documents
+
+- [Contribution guide](CONTRIBUTING.md)
+- [Security policy](SECURITY.md)
+- [Deployment modes](DEPLOYMENT.md)
+- [Release checklist](RELEASE_CHECKLIST.md)
+- [Portfolio demonstration script](PORTFOLIO_DEMO.md)
+
+## Roadmap
+
+- Production object-storage adapter
+- Production email-provider adapter
+- Optional production AI/vector provider
+- Real billing only after a dedicated security and compliance review
+- Expanded observability, localization, and multi-workspace switching
+
+No open-source license has been added yet. A recommendation is provided in the final milestone report for owner approval.

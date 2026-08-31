@@ -1,0 +1,4 @@
+import {NextResponse,type NextRequest} from "next/server";
+import {randomUUID} from "crypto";
+export function proxy(request:NextRequest){const requestHeaders=new Headers(request.headers),correlationId=request.headers.get("x-correlation-id")??randomUUID();requestHeaders.set("x-correlation-id",correlationId);const response=NextResponse.next({request:{headers:requestHeaders}});response.headers.set("x-correlation-id",correlationId);response.headers.set("X-Content-Type-Options","nosniff");response.headers.set("X-Frame-Options","DENY");response.headers.set("Referrer-Policy","strict-origin-when-cross-origin");response.headers.set("Permissions-Policy","camera=(), microphone=(), geolocation=()");response.headers.set("Cross-Origin-Opener-Policy","same-origin");return response}
+export const config={matcher:["/((?!_next/static|_next/image|favicon.ico).*)"]};

@@ -1,0 +1,1 @@
+import Link from "next/link";export default function Terms(){return <main className="legal-page"><h1>Terms placeholder</h1><p>This demonstration is provided for evaluation and development. Plans and prices are simulations, no payment is collected, and no service-level commitment is offered.</p><Link href="/">Return home</Link></main>}

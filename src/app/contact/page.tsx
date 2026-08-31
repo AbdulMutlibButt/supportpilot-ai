@@ -1,0 +1,1 @@
+import Link from "next/link";export default function Contact(){return <main className="legal-page"><h1>Contact placeholder</h1><p>Production contact channels have not been configured. Review the repository documentation for local setup and contribution guidance.</p><Link href="/">Return home</Link></main>}

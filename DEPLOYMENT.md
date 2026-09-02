@@ -20,6 +20,8 @@ SupportPilot has two intentionally separate modes. Local full mode keeps Postgre
 
 Do **not** configure `OLLAMA_*`, `LOCAL_STORAGE_ROOT`, private upload/storage variables, payment credentials, or external email-provider credentials in public mode. Startup validation rejects these combinations without printing their values. Public mode hides and server-rejects private uploads, uses mock AI, shows demonstration labels, and uses demonstration billing and the database-backed development email preview only. It collects no card data.
 
+For a zero-cost Public Beta, use `APP_MODE=public-beta` with the same `DATABASE_URL`, HTTPS `APP_BASE_URL`, `AI_PROVIDER=mock`, and `ALLOW_MOCK_AI=true` variables. Registration is enabled and each user receives an isolated workspace; mock AI and fixed workspace limits apply. Uploads and all Knowledge Base ingestion/editing remain server-rejected. Vercel Hobby is for personal, non-commercial use and subject to free-tier limits.
+
 Use `npm ci` as the Vercel install command and `npm run build` as the build command. `postinstall` runs `prisma generate` so the generated client is present on Vercel. `DATABASE_URL` must be configured during install/build because Prisma configuration reads it, but the database does not need to be reachable for the build: the application does not query it at build time. A reachable hosted database is required for migrations, seeding, and runtime requests.
 
 ## Migrate and seed safely

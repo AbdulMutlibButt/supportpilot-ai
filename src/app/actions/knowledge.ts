@@ -17,7 +17,7 @@ const id = z.string().trim().min(1);
 
 export async function uploadDocumentAction(form: FormData) {
   const { user, workspace } = await requireWorkspace(undefined, "AGENT");
-  if (validateRuntimeConfig().publicDemo) throw new Error("Private uploads are disabled in public portfolio mode");
+  if (validateRuntimeConfig().hostedPublic) throw new Error("Document uploads are unavailable in public modes");
   await enforcePlanLimit(db,workspace.id,"documents");
   const file = form.get("file");
   if (!(file instanceof File)) throw new Error("Choose a PDF, DOCX, or TXT file");
@@ -33,6 +33,7 @@ export async function uploadDocumentAction(form: FormData) {
 
 export async function createArticleAction(form: FormData) {
   const { user, workspace } = await requireWorkspace(undefined, "AGENT");
+  if (validateRuntimeConfig().hostedPublic) throw new Error("Knowledge Base editing is unavailable in public modes");
   await enforcePlanLimit(db,workspace.id,"documents");
   const fields = z.object({ title: shortText, description: optionalText, content: z.string().trim().min(1).max(250_000), collectionId: z.string().optional() }).parse(Object.fromEntries(form));
   const document = await knowledge.createArticle(db, user.id, workspace.id, { ...fields, collectionId: fields.collectionId || undefined });
@@ -41,6 +42,7 @@ export async function createArticleAction(form: FormData) {
 
 export async function updateDocumentAction(form: FormData) {
   const { user, workspace } = await requireWorkspace(undefined, "AGENT");
+  if (validateRuntimeConfig().hostedPublic) throw new Error("Knowledge Base editing is unavailable in public modes");
   const fields = z.object({ documentId: id, title: shortText, description: optionalText, content: z.string().optional(), collectionId: z.string().optional() }).parse(Object.fromEntries(form));
   await knowledge.updateArticle(db, user.id, workspace.id, fields.documentId, { ...fields, collectionId: fields.collectionId || undefined });
   revalidatePath(`/dashboard/knowledge/${fields.documentId}`);
@@ -49,7 +51,7 @@ export async function updateDocumentAction(form: FormData) {
 
 export async function retryDocumentAction(form: FormData) {
   const { user, workspace } = await requireWorkspace(undefined, "AGENT");
-  if (validateRuntimeConfig().publicDemo) throw new Error("File processing is disabled in public portfolio mode");
+  if (validateRuntimeConfig().hostedPublic) throw new Error("File processing is unavailable in public modes");
   const documentId = id.parse(form.get("documentId"));
   await knowledge.retryDocument(db, privateStorage, user.id, workspace.id, documentId);
   revalidatePath(`/dashboard/knowledge/${documentId}`);
@@ -57,7 +59,7 @@ export async function retryDocumentAction(form: FormData) {
 
 export async function deleteDocumentAction(form: FormData) {
   const { user, workspace } = await requireWorkspace(undefined, "OWNER");
-  if (validateRuntimeConfig().publicDemo) throw new Error("Document deletion is disabled in public portfolio mode");
+  if (validateRuntimeConfig().hostedPublic) throw new Error("Document deletion is unavailable in public modes");
   const fields = z.object({ documentId: id, confirm: z.literal("DELETE") }).parse(Object.fromEntries(form));
   await knowledge.deleteDocument(db, privateStorage, user.id, workspace.id, fields.documentId);
   redirect("/dashboard/knowledge?deleted=1");
@@ -65,6 +67,7 @@ export async function deleteDocumentAction(form: FormData) {
 
 export async function createCollectionAction(form: FormData) {
   const { user, workspace } = await requireWorkspace(undefined, "AGENT");
+  if (validateRuntimeConfig().hostedPublic) throw new Error("Knowledge Base editing is unavailable in public modes");
   const fields = z.object({ name: shortText, description: optionalText }).parse(Object.fromEntries(form));
   await knowledge.createCollection(db, user.id, workspace.id, fields.name, fields.description);
   revalidatePath("/dashboard/knowledge");

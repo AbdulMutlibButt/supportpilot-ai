@@ -135,6 +135,10 @@ Uses `APP_MODE=public-demo`, deterministic mock AI, seeded non-private content, 
 
 See [DEPLOYMENT.md](DEPLOYMENT.md). Deployment is intentionally not performed by this milestone.
 
+### Public Beta mode
+
+Set `APP_MODE=public-beta`, `AI_PROVIDER=mock`, and `ALLOW_MOCK_AI=true` with a hosted PostgreSQL URL and HTTPS `APP_BASE_URL`. Visitors can create isolated free workspaces and use the inbox with mock AI. Uploads, document ingestion, local storage, Ollama, paid AI, payments, and external email delivery remain disabled. Vercel Hobby is intended for personal, non-commercial use and its free limits apply.
+
 ### Stable local PostgreSQL verification
 
 Docker Desktop can provide an isolated PostgreSQL database for local tests without touching Prisma Dev/PGlite data. Copy `.env.docker.example` to the ignored `.env.docker.local`, choose a local-only password, then run `docker compose --env-file .env.docker.local up -d`. Put the matching local `DATABASE_URL` in ignored `.env.test.docker.local`, then run migrations, seed data, and tests with that variable in the shell. The Compose service binds only to `127.0.0.1:54329` and uses the separate `supportpilot_verification_postgres_data` volume.

@@ -4,8 +4,9 @@ import { redirect } from "next/navigation";
 import { db } from "./db";
 import { authorizeWorkspace, type WorkspaceRole } from "./authorization";
 import { findSession, persistSession, revokeSession } from "./session-store";
+import { resolveSessionCookieName } from "./session-cookie";
 
-const COOKIE = process.env.SESSION_COOKIE_NAME ?? "supportpilot_session";
+const COOKIE = resolveSessionCookieName();
 
 export async function createSession(userId: string) {
   const { token, expiresAt } = await persistSession(db, userId);

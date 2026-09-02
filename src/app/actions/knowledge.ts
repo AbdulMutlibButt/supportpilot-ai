@@ -49,6 +49,7 @@ export async function updateDocumentAction(form: FormData) {
 
 export async function retryDocumentAction(form: FormData) {
   const { user, workspace } = await requireWorkspace(undefined, "AGENT");
+  if (validateRuntimeConfig().publicDemo) throw new Error("File processing is disabled in public portfolio mode");
   const documentId = id.parse(form.get("documentId"));
   await knowledge.retryDocument(db, privateStorage, user.id, workspace.id, documentId);
   revalidatePath(`/dashboard/knowledge/${documentId}`);
@@ -56,6 +57,7 @@ export async function retryDocumentAction(form: FormData) {
 
 export async function deleteDocumentAction(form: FormData) {
   const { user, workspace } = await requireWorkspace(undefined, "OWNER");
+  if (validateRuntimeConfig().publicDemo) throw new Error("Document deletion is disabled in public portfolio mode");
   const fields = z.object({ documentId: id, confirm: z.literal("DELETE") }).parse(Object.fromEntries(form));
   await knowledge.deleteDocument(db, privateStorage, user.id, workspace.id, fields.documentId);
   redirect("/dashboard/knowledge?deleted=1");

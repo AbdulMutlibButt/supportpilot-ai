@@ -7,10 +7,12 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requestPasswordReset, resetPassword } from "@/lib/password-reset-service";
 import { checkRateLimit, hashValue } from "@/lib/ai/safety";
+import { validateRuntimeConfig } from "@/lib/runtime-config";
 
 export type AuthState = { message?: string; errors?: Record<string, string[]> };
 
 export async function register(_: AuthState, form: FormData): Promise<AuthState> {
+  if (validateRuntimeConfig().publicDemo) return { message: "Registration is disabled in public portfolio mode." };
   const validated = registerSchema.safeParse(Object.fromEntries(form));
   if (!validated.success) return { errors: validated.error.flatten().fieldErrors };
   try {
@@ -40,5 +42,5 @@ export async function login(_: AuthState, form: FormData): Promise<AuthState> {
 
 export async function logout() { await destroySession(); redirect("/login"); }
 
-export async function requestReset(_:AuthState,form:FormData):Promise<AuthState>{const parsed=z.email().safeParse(form.get("email"));if(parsed.success){try{checkRateLimit(`password-reset:${hashValue(parsed.data.toLowerCase())}`,5,15*60_000);await requestPasswordReset(db,parsed.data)}catch{return{message:"If an account matches that email, a short-lived reset link is now available in the authorized development outbox."}}}return{message:"If an account matches that email, a short-lived reset link is now available in the authorized development outbox."}}
+export async function requestReset(_:AuthState,form:FormData):Promise<AuthState>{const runtime=validateRuntimeConfig();if(runtime.publicDemo)return{message:"Password reset is unavailable in the public portfolio demonstration."};const parsed=z.email().safeParse(form.get("email"));if(parsed.success){try{checkRateLimit(`password-reset:${hashValue(parsed.data.toLowerCase())}`,5,15*60_000);await requestPasswordReset(db,parsed.data,runtime.baseUrl)}catch{return{message:"If an account matches that email, a short-lived reset link is now available in the authorized development outbox."}}}return{message:"If an account matches that email, a short-lived reset link is now available in the authorized development outbox."}}
 export async function completeReset(_:AuthState,form:FormData):Promise<AuthState>{const parsed=z.object({token:z.string().min(20),password:registerSchema.shape.password,confirmPassword:z.string()}).refine(x=>x.password===x.confirmPassword,{path:["confirmPassword"],message:"Passwords must match."}).safeParse(Object.fromEntries(form));if(!parsed.success)return{errors:parsed.error.flatten().fieldErrors};try{await resetPassword(db,parsed.data.token,parsed.data.password)}catch{return{message:"This password-reset link is invalid, expired, or already used."}}redirect("/login?reset=1")}

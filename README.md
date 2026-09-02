@@ -135,6 +135,10 @@ Uses `APP_MODE=public-demo`, deterministic mock AI, seeded non-private content, 
 
 See [DEPLOYMENT.md](DEPLOYMENT.md). Deployment is intentionally not performed by this milestone.
 
+### Stable local PostgreSQL verification
+
+Docker Desktop can provide an isolated PostgreSQL database for local tests without touching Prisma Dev/PGlite data. Copy `.env.docker.example` to the ignored `.env.docker.local`, choose a local-only password, then run `docker compose --env-file .env.docker.local up -d`. Put the matching local `DATABASE_URL` in ignored `.env.test.docker.local`, then run migrations, seed data, and tests with that variable in the shell. The Compose service binds only to `127.0.0.1:54329` and uses the separate `supportpilot_verification_postgres_data` volume.
+
 ## Known audit warning
 
 `npm audit --omit=dev` reports a high-severity `deepmerge-ts` advisory through the development-only Prisma CLI (`prisma` → `@prisma/config`). npm's proposed automatic repair force-downgrades Prisma to 6.12, a breaking change, so it is intentionally not applied. Reassess when Prisma publishes a compatible update. This CLI chain is not shipped in the production runtime.

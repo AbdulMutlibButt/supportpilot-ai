@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "postinstall": "prisma generate",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
@@ -12,7 +13,9 @@
     "ai:smoke": "tsx scripts/ai-smoke.ts",
     "db:dev": "prisma dev --name supportpilot --detach",
     "db:migrate": "prisma migrate dev",
-    "db:seed": "prisma db seed"
+    "db:deploy": "prisma migrate deploy",
+    "db:seed": "prisma db seed",
+    "db:seed:portfolio": "prisma db seed"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.9.1",

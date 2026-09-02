@@ -1,13 +1,16 @@
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { hash } from "bcryptjs";
+import { assertSeedSafety } from "../src/lib/seed-safety";
 const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }) });
+async function main() {
+assertSeedSafety();
 const seedPassword = process.env.SEED_PASSWORD;
 if (!seedPassword || seedPassword.length < 8) throw new Error("Set SEED_PASSWORD to at least 8 characters before seeding.");
 const passwordHash = await hash(seedPassword, 12);
 const workspace = await db.workspace.upsert({ where: { slug: "northstar-support" }, update: { plan: "PRO" }, create: { name: "Northstar Support", slug: "northstar-support", plan: "PRO" } });
 for (const [email, name, role] of [["owner@supportpilot.local", "Alex Morgan", "OWNER"], ["agent@supportpilot.local", "Mina Kapoor", "AGENT"], ["viewer@supportpilot.local", "Ari Reed", "VIEWER"]] as const) {
-  const user = await db.user.upsert({ where: { email }, update: {}, create: { email, name, passwordHash } });
+  const user = await db.user.upsert({ where: { email }, update: { name, passwordHash }, create: { email, name, passwordHash } });
   await db.membership.upsert({ where: { userId_workspaceId: { userId: user.id, workspaceId: workspace.id } }, update: { role }, create: { userId: user.id, workspaceId: workspace.id, role } });
 }
 const owner = await db.user.findUniqueOrThrow({ where: { email: "owner@supportpilot.local" } });
@@ -47,6 +50,8 @@ if (!await db.knowledgeDocument.findFirst({ where: { workspaceId: workspace.id, 
   ] } } });
   await db.documentActivity.create({ data: { workspaceId: workspace.id, documentId: document.id, actorId: owner.id, type: "article.created", description: "Created evaluation knowledge article" } });
 }
-await db.chatbotConfig.upsert({ where: { workspaceId: workspace.id }, update: {}, create: { workspaceId: workspace.id, name: "Northstar Assistant", welcomeMessage: "Hi! Ask a question about Northstar support.", color: "#6558f5" } });
-await db.$disconnect();
+const publicChatbotId = "89c85fd2-91b7-4b23-b5e1-5890c13db3cf";
+await db.chatbotConfig.upsert({ where: { workspaceId: workspace.id }, update: { publicId: publicChatbotId, name: "Northstar Assistant", welcomeMessage: "Hi! Ask a question about Northstar support.", color: "#6558f5" }, create: { workspaceId: workspace.id, publicId: publicChatbotId, name: "Northstar Assistant", welcomeMessage: "Hi! Ask a question about Northstar support.", color: "#6558f5" } });
 console.log("Seeded SupportPilot members, conversations, knowledge content, and chatbot configuration.");
+}
+main().catch((error) => { console.error(error); process.exitCode = 1; }).finally(() => db.$disconnect());
